@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Lance tout l'environnement de dev : ./bin/dev   (ajouter --monitoring pour Prometheus/Grafana)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+[ -f .env ] || { cp .env.example .env; echo "[dev] .env créé depuis .env.example"; }
+mkdir -p data dags
+
+if [ "${1:-}" = "--monitoring" ]; then
+  export COMPOSE_PROFILES=monitoring
+fi
+
+docker compose up --build -d
+docker compose ps
+echo
+echo "Airflow    : http://localhost:8080  (1-2 min au premier démarrage)"
+[ "${COMPOSE_PROFILES:-}" = "monitoring" ] && echo "Prometheus : http://localhost:9090" && echo "Grafana    : http://localhost:3000"
+echo "Arrêter    : docker compose down"

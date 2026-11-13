@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Lint + tests, comme la CI : ./bin/test
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if [ ! -d .venv ]; then
+  python3 -m venv .venv 2>/dev/null || python -m venv .venv
+fi
+# Linux/macOS : .venv/bin ; Windows (Git Bash) : .venv/Scripts
+if [ -f .venv/bin/activate ]; then source .venv/bin/activate; else source .venv/Scripts/activate; fi
+
+pip install -q -e ".[dev]"
+ruff check .
+pytest -q -m "not network"
