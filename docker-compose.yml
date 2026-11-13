@@ -19,7 +19,7 @@ services:
       retries: 10
 
   airflow:
-    image: apache/airflow:2.10.4-python3.11
+    image: apache/airflow:3.4.0-python3.12
     container_name: gazette-airflow
     command: standalone
     user: "${AIRFLOW_UID:-50000}:0"
@@ -29,11 +29,9 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD}@postgres:5432/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
-      _AIRFLOW_WWW_USER_USERNAME: admin
-      _AIRFLOW_WWW_USER_PASSWORD: admin
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "True"   # dev uniquement : pas de login
     volumes:
       - ./dags:/opt/airflow/dags
-      - ./src:/opt/airflow/src:ro
       - ./sources.csv:/opt/airflow/sources.csv:ro
       - ./data:/opt/airflow/data
     depends_on:
@@ -41,25 +39,51 @@ services:
         condition: service_healthy
 
   pipeline:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
+    build: .
     image: gazette:dev
     container_name: gazette-pipeline
-    env_file:
-      - .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-gazette}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gazette}
-      AIRFLOW_URL: http://airflow:8080
       RAW_DATA_DIR: /app/data/raw
       OUTPUT_DIR: /app/data/editions
     volumes:
-      - ./src:/app/src
       - ./sources.csv:/app/sources.csv:ro
       - ./data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
 
+  # ---- Supervision (TD 8) : démarre seulement avec --profile monitoring ----
+  prometheus:
+    image: prom/prometheus:v3.13.5
+    container_name: gazette-prometheus
+    profiles: ["monitoring"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:13.2.4
+    container_name: gazette-grafana
+    profiles: ["monitoring"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?définir GRAFANA_ADMIN_PASSWORD dans .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:

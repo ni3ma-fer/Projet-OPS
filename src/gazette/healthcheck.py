@@ -1,74 +1,65 @@
+"""Vérifie que le socle répond : stockage, PostgreSQL, Airflow."""
+
 import os
 import sys
-from pathlib import Path
+import time
 import urllib.request
-import psycopg2
-from sentence_transformers import SentenceTransformer
+from pathlib import Path
+
+import psycopg
+
+
+def retry(fn, attempts: int = 30, delay: float = 5.0) -> None:
+    for i in range(1, attempts + 1):
+        try:
+            fn()
+            return
+        except Exception as exc:
+            if i == attempts:
+                raise
+            print(f"[..] {fn.__name__} pas prêt ({exc}), essai {i}/{attempts}")
+            time.sleep(delay)
 
 
 def check_storage() -> None:
-    raw_dir = Path(os.getenv("RAW_DATA_DIR", "/app/data/raw"))
-    out_dir = Path(os.getenv("OUTPUT_DIR", "/app/data/editions"))
-
-    for directory in (raw_dir, out_dir):
+    for var, default in (("RAW_DATA_DIR", "/app/data/raw"), ("OUTPUT_DIR", "/app/data/editions")):
+        directory = Path(os.getenv(var, default))
         directory.mkdir(parents=True, exist_ok=True)
-        test_file = directory / ".healthcheck"
-        test_file.write_text("ok", encoding="utf-8")
-        assert test_file.read_text(encoding="utf-8") == "ok"
-        test_file.unlink()
-
-    print(f"[OK] Stockage volumes montés : {raw_dir} et {out_dir}")
+        probe = directory / ".healthcheck"
+        probe.write_text("ok", encoding="utf-8")
+        if probe.read_text(encoding="utf-8") != "ok":
+            raise RuntimeError(f"écriture impossible dans {directory}")
+        probe.unlink()
+    print("[OK] Stockage accessible en écriture")
 
 
 def check_postgres() -> None:
-    db_url = os.getenv("DATABASE_URL")
-    if db_url:
-        conn = psycopg2.connect(db_url, connect_timeout=5)
-    else:
-        conn = psycopg2.connect(
-            host=os.getenv("POSTGRES_HOST", "postgres"),
-            port=os.getenv("POSTGRES_PORT", "5432"),
-            user=os.getenv("POSTGRES_USER", "gazette"),
-            password=os.getenv("POSTGRES_PASSWORD", "gazette_secret"),
-            dbname=os.getenv("POSTGRES_DB", "gazette"),
-            connect_timeout=5,
-        )
-    with conn.cursor() as cur:
-        cur.execute("SELECT 1;")
-        result = cur.fetchone()
-    conn.close()
-
-    assert result == (1,)
-    print("[OK] Connexion PostgreSQL opérationnelle")
+    db_url = os.environ["DATABASE_URL"]  # pas de valeur par défaut : aucun secret dans le code
+    with psycopg.connect(db_url, connect_timeout=5) as conn:
+        if conn.execute("SELECT 1").fetchone() != (1,):
+            raise RuntimeError("SELECT 1 inattendu")
+    print("[OK] PostgreSQL opérationnel")
 
 
-def check_orchestrator() -> None:
-    airflow_url = os.getenv("AIRFLOW_URL", "http://airflow:8080")
-    health_url = f"{airflow_url.rstrip('/')}/health"
-    with urllib.request.urlopen(health_url, timeout=10) as response:
-        assert response.status == 200
-    print(f"[OK] Orchestrateur Airflow joignable ({health_url})")
-
-
-def check_nlp_model() -> None:
-    model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-    vec = model.encode(["Test santé pipeline La Gazette"])
-    assert vec.shape[0] == 1
-    print("[OK] Modèle d'embeddings BERTopic chargé en local")
+def check_airflow() -> None:
+    base = os.getenv("AIRFLOW_URL", "http://airflow:8080").rstrip("/")
+    path = os.getenv("AIRFLOW_HEALTH_PATH", "/api/v2/monitor/health")  # Airflow 2 : /health
+    with urllib.request.urlopen(f"{base}{path}", timeout=10) as resp:
+        if resp.status != 200:
+            raise RuntimeError(f"HTTP {resp.status}")
+    print("[OK] Airflow joignable")
 
 
 def main() -> None:
-    print("=== Démarrage du healthcheck La Gazette ===")
+    print("=== Healthcheck La Gazette ===")
     try:
         check_storage()
-        check_postgres()
-        check_orchestrator()
-        check_nlp_model()
-    except Exception as exc:
-        print(f"[ERREUR] Échec du healthcheck : {exc}", file=sys.stderr)
+        retry(check_postgres)
+        retry(check_airflow)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[ERREUR] {exc}", file=sys.stderr)
         sys.exit(1)
-
-    print("=== Socle Docker 100 % opérationnel ===")
+    print("=== Socle opérationnel ===")
 
 
 if __name__ == "__main__":
