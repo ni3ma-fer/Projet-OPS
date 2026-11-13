@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gazette-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gazette}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env}
+      POSTGRES_DB: ${POSTGRES_DB:-gazette}
+      AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD:?définir AIRFLOW_DB_PASSWORD dans .env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init-airflow.sh:/docker-entrypoint-initdb.d/init-airflow.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  airflow:
+    image: apache/airflow:2.10.4-python3.11
+    container_name: gazette-airflow
+    command: standalone
+    user: "${AIRFLOW_UID:-50000}:0"
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD}@postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src:ro
+      - ./sources.csv:/opt/airflow/sources.csv:ro
+      - ./data:/opt/airflow/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  pipeline:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: gazette:dev
+    container_name: gazette-pipeline
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gazette}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gazette}
+      AIRFLOW_URL: http://airflow:8080
+      RAW_DATA_DIR: /app/data/raw
+      OUTPUT_DIR: /app/data/editions
+    volumes:
+      - ./src:/app/src
+      - ./sources.csv:/app/sources.csv:ro
+      - ./data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
