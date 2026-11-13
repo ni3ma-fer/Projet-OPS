@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Libération - fixture de test</title>
+    <link>https://www.liberation.fr/</link>
+    <description>Exemple réduit et anonymisé pour les tests</description>
+    <item>
+      <title>Premier titre &amp; accents : éàç</title>
+      <link>https://www.liberation.fr/exemple/article-1/</link>
+      <description><![CDATA[<p>Un <strong>extrait</strong> avec du HTML.</p>]]></description>
+      <pubDate>Fri, 13 Nov 2026 08:30:00 +0100</pubDate>
+      <dc:creator>Auteur fictif</dc:creator>
+    </item>
+    <item>
+      <title>Deuxième titre</title>
+      <link>https://www.liberation.fr/exemple/article-2/</link>
+      <description>Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long. Texte long.</description>
+      <pubDate>Fri, 13 Nov 2026 06:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Troisième titre sans date</title>
+      <link>https://www.liberation.fr/exemple/article-3/</link>
+    </item>
+    <item>
+      <title></title>
+      <link>https://www.liberation.fr/exemple/sans-titre/</link>
+    </item>
+  </channel>
+</rss>
