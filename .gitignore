@@ -1,7 +1,8 @@
-.env
-__pycache__/
-*.py[cod]
 .venv/
-venv/
-.DS_Store
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
 data/
+.env
+*.egg-info/
