@@ -10,3 +10,5 @@
 8. **Reproductible en local** : `./bin/test` lance les mêmes commandes que la CI.
 9. **Hors périmètre (bornage TD 2)** : pas de déploiement automatique, pas de matrice de versions, pas de cache.
 10. **Suite** : déploiement au TD 7 (Terraform), qualité SonarCloud envisagée au TD 8-9.
+
+La CI construit deux images : l'application (`Dockerfile`) et Airflow (`infra/airflow/Dockerfile`). Sur `main`, les deux sont publiées sur ghcr.io avec le tag `YYYYMMDDHHMMSS-sha` ; sur les autres branches, elles sont seulement construites pour vérifier que les Dockerfile fonctionnent.

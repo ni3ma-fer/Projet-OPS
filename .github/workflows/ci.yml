@@ -35,19 +35,28 @@ jobs:
         run: |
           echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
           echo "tag=$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       - name: Connexion a ghcr.io
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build (et push si main)
-        uses: docker/build-push-action@v6
+      - name: Build (et push si main) - application
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
             ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
             ${{ steps.meta.outputs.image }}:latest
+      - name: Build (et push si main) - Airflow
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: infra/airflow/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ steps.meta.outputs.image }}-airflow:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.image }}-airflow:latest
