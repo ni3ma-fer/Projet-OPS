@@ -11,6 +11,7 @@ import html
 import json
 import re
 import unicodedata
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -92,6 +93,14 @@ def main(argv: list[str] | None = None) -> None:
     ecrire_json(items, out)
     print(f"{len(items)} items -> {out}")
 
-
+def fetch_statut(url: str, timeout: float = 15.0) -> tuple[int, bytes]:
+    """Telecharge un flux et renvoie (code_http, contenu). Un 403 reste un 403."""
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status, resp.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, b""
+    
 if __name__ == "__main__":
     main()
