@@ -17,13 +17,13 @@ git clone https://github.com/ni3ma-fer/Projet-OPS.git && cd Projet-OPS
 
 `bin/dev` crée `.env` depuis `.env.example` s'il n'existe pas, puis lance `docker compose up --build -d`.
 
-| Service | Rôle | Accès |
-|---|---|---|
-| `postgres` | bases `gazette` (données) et `airflow` (métadonnées) | `localhost:5432` |
-| `airflow` | orchestrateur (Airflow 3) | http://localhost:8080 — pas de login (**dev uniquement**), 1-2 min au 1er démarrage |
-| `pipeline` | notre application (`python -m gazette`) | s'arrête après exécution (`Exited (0)`) |
-| `prometheus` *(option)* | métriques | http://localhost:9090 |
-| `grafana` *(option)* | tableaux de bord | http://localhost:3000 — identifiants dans `.env` |
+| Service                     | Rôle                                                       | Accès                                                                                      |
+| --------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `postgres`                | bases `gazette` (données) et `airflow` (métadonnées) | `localhost:5432`                                                                          |
+| `airflow`                 | orchestrateur (Airflow 3)                                   | http://localhost:8080 — pas de login (**dev uniquement**), 1-2 min au 1er démarrage |
+| `pipeline`                | notre application (`python -m gazette`)                   | s'arrête après exécution (`Exited (0)`)                                                |
+| `prometheus` *(option)* | métriques                                                  | http://localhost:9090                                                                       |
+| `grafana` *(option)*    | tableaux de bord                                            | http://localhost:3000 — identifiants dans `.env`                                         |
 
 Supervision : `./bin/dev --monitoring`. Arrêter : `docker compose --profile monitoring down`.
 
@@ -63,3 +63,7 @@ Voir [`CONTRIBUTING.md`](CONTRIBUTING.md) et la stratégie CI/CD dans [`docs/ci-
 - `error during connect ... dockerDesktopLinuxEngine` : Docker Desktop n'est pas démarré.
 - `bad interpreter: ^M` : fichier en fins de ligne Windows ; `.gitattributes` force LF, refaire un `git checkout` du fichier.
 - `Permission denied` sur `./bin/dev` : lancer `bash bin/dev`.
+
+## Collecte planifiée
+
+La collecte horaire des 24 sources tourne dans Airflow. Fonctionnement, règles et statuts : voir [docs/collecte.md](docs/collecte.md).
