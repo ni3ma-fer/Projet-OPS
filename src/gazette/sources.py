@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,14 +33,6 @@ class Resultat:
         return evaluer_statut(self.code_http, len(self.items), self.erreur)
 
 
-def lire_sources(chemin: Path = Path("sources.csv"), seulement_actives: bool = True) -> list[dict]:
-    with chemin.open(encoding="utf-8", newline="") as f:
-        sources = list(csv.DictReader(f))
-    if seulement_actives:
-        sources = [s for s in sources if s["actif"] == "oui"]
-    return sources
-
-
 def collecter_source(source: dict, timeout: float = 15.0) -> Resultat:
     """Collecte une source. Ne leve jamais d'exception : l'echec est dans le resultat."""
     resultat = Resultat(slug=source["slug"])
@@ -66,6 +59,13 @@ def main() -> None:
             f"{r.statut:8} {r.duree_s:>5}s  {r.erreur or ''}"
         )
 
+def lire_sources(chemin: Path | None = None, seulement_actives: bool = True) -> list[dict]:
+    chemin = chemin or Path(os.getenv("SOURCES_CSV", "sources.csv"))
+    with chemin.open(encoding="utf-8", newline="") as f:
+        sources = list(csv.DictReader(f))
+    if seulement_actives:
+        sources = [s for s in sources if s["actif"] == "oui"]
+    return sources
 
 if __name__ == "__main__":
     main()

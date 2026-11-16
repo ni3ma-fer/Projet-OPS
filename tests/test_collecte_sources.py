@@ -49,3 +49,10 @@ def test_fetch_statut_garde_le_code_http(monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", refuse)
     assert collect.fetch_statut("https://exemple.test/") == (403, b"")
+
+
+def test_lire_sources_chemin_par_variable_d_environnement(tmp_path, monkeypatch):
+    chemin = tmp_path / "autre.csv"
+    chemin.write_text("nom,slug,url,actif\nA,a,https://a,oui\n", encoding="utf-8")
+    monkeypatch.setenv("SOURCES_CSV", str(chemin))
+    assert [s["slug"] for s in src.lire_sources()] == ["a"]

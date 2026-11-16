@@ -19,7 +19,10 @@ services:
       retries: 10
 
   airflow:
-    image: apache/airflow:3.4.0-python3.12
+    build:
+      context: .
+      dockerfile: infra/airflow/Dockerfile
+    image: gazette-airflow:dev
     container_name: gazette-airflow
     command: standalone
     user: "${AIRFLOW_UID:-50000}:0"
@@ -29,7 +32,11 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD}@postgres:5432/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "False"   # le DAG tourne seul, sans clic
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "True"   # dev uniquement : pas de login
+      SOURCES_CSV: /opt/airflow/sources.csv
+      RAW_DATA_DIR: /opt/airflow/data/raw
+      STATE_DIR: /opt/airflow/data/etat
     volumes:
       - ./dags:/opt/airflow/dags
       - ./sources.csv:/opt/airflow/sources.csv:ro
