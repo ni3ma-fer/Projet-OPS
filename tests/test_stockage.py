@@ -92,3 +92,9 @@ def test_rapport_csv(tmp_path):
         lignes = {ligne["slug"]: ligne for ligne in csv.DictReader(f)}
     assert (lignes["a"]["statut"], lignes["a"]["erreur"]) == ("panne", "HTTP 403")
     assert lignes["b"]["statut"] == "inconnu"
+
+def test_304_reste_ok_et_non_degrade(tmp_path):
+    bilan = traiter_resultat(
+        Resultat(slug="src", code_http=304), tmp_path / "brut", tmp_path / "etat"
+    )
+    assert (bilan["statut"], bilan["nouveaux"]) == ("ok", 0)

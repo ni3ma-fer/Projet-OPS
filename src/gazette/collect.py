@@ -13,6 +13,7 @@ import re
 import unicodedata
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -93,14 +94,58 @@ def main(argv: list[str] | None = None) -> None:
     ecrire_json(items, out)
     print(f"{len(items)} items -> {out}")
 
-def fetch_statut(url: str, timeout: float = 15.0) -> tuple[int, bytes]:
-    """Telecharge un flux et renvoie (code_http, contenu). Un 403 reste un 403."""
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+
+@dataclass
+class Reponse:
+    code: int
+    contenu: bytes = b""
+    etag: str | None = None
+    last_modified: str | None = None
+
+
+def _en_tete(headers, nom: str) -> str | None:
+    return headers.get(nom) if headers else None
+
+
+def fetch_conditionnel(
+    url: str,
+    timeout: float = 15.0,
+    etag: str | None = None,
+    last_modified: str | None = None,
+) -> Reponse:
+    """Telecharge un flux en envoyant If-None-Match / If-Modified-Since si on les connait.
+
+    304 = rien de neuf (pas une erreur). Un 403 reste un 403 : aucun contournement.
+    """
+    entetes = {"User-Agent": USER_AGENT}
+    if etag:
+        entetes["If-None-Match"] = etag
+    if last_modified:
+        entetes["If-Modified-Since"] = last_modified
+    req = urllib.request.Request(url, headers=entetes)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.status, resp.read()
+            return Reponse(
+                resp.status,
+                resp.read(),
+                _en_tete(resp.headers, "ETag"),
+                _en_tete(resp.headers, "Last-Modified"),
+            )
     except urllib.error.HTTPError as exc:
-        return exc.code, b""
-    
+        # urllib leve HTTPError pour le 304 comme pour les 4xx/5xx : on garde le code
+        return Reponse(
+            exc.code,
+            b"",
+            _en_tete(exc.headers, "ETag"),
+            _en_tete(exc.headers, "Last-Modified"),
+        )
+
+
+def fetch_statut(url: str, timeout: float = 15.0) -> tuple[int, bytes]:
+    """Version simple : (code_http, contenu). Un 403 reste un 403."""
+    reponse = fetch_conditionnel(url, timeout)
+    return reponse.code, reponse.contenu
+
+
 if __name__ == "__main__":
     main()

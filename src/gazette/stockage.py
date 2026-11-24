@@ -149,7 +149,7 @@ def traiter_resultat(
     maintenant = maintenant or datetime.now(timezone.utc)
     recents = filtrer_recents(resultat.items, maintenant)
     statut, erreur = resultat.statut, resultat.erreur
-    if statut == "ok" and not recents:
+    if statut == "ok" and not recents and not resultat.non_modifie:
         statut, erreur = "degrade", "aucun article de moins de 24 h"
     nouveaux = enregistrer_articles(racine, resultat.slug, recents, maintenant)
     mettre_a_jour_etat(
