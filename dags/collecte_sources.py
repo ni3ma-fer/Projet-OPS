@@ -1,6 +1,7 @@
 """DAG toutes les 30 min : une tache de collecte par source (dynamic task mapping).
 
 L'etat de chaque source (statut, echecs, ETag...) vit dans la table `sources`.
+Chaque tache ecrit une ligne de journal JSON ; `finaliser` ecrit le resume du passage.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from airflow.sdk import DAG, task
 
 from gazette.catalogue import charger_sources, enregistrer_passage, synchroniser
 from gazette.db import connexion
+from gazette.journal import journaliser, ligne_source, resume_passage
 from gazette.migrations import appliquer
 from gazette.sources import collecter_source, lire_sources
 from gazette.stockage import (
@@ -32,7 +34,7 @@ with DAG(
 
     @task
     def lister_sources() -> list[dict]:
-        """Migrations, synchro de sources.csv, puis sources actives avec leur ETag."""
+        """Migrations, synchro de sources.csv, puis sources a collecter avec leur ETag."""
         with connexion(autocommit=True) as conn:
             appliquer(conn)
             synchroniser(conn, lire_sources(seulement_actives=False))
@@ -46,7 +48,7 @@ with DAG(
         bilan = traiter_resultat(resultat, racine_brut(), dossier_etat(), maintenant)
         with connexion(autocommit=True) as conn:
             enregistrer_passage(conn, resultat, bilan["statut"], bilan["erreur"], maintenant)
-        print(bilan)
+        journaliser(ligne_source(resultat, bilan))
         return bilan
 
     @task
@@ -54,6 +56,6 @@ with DAG(
         bilans = list(bilans)  # les valeurs d'une tache mappee arrivent en proxy paresseux
         ecrire_rapport(dossier_etat(), lire_sources(seulement_actives=False))
         purges = purger_anciens(racine_brut(), datetime.now(timezone.utc))
-        print(f"{len(bilans)} sources traitees, {purges} dossier(s) purge(s)")
+        journaliser({**resume_passage(bilans), "dossiers_purges": purges})
 
     finaliser(collecter.expand(source=lister_sources()))
