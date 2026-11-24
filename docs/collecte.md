@@ -1,10 +1,9 @@
-
 # Collecte planifiée (TD 3)
 
 ## En bref
 
 - **DAG Airflow `collecte_sources`** (`dags/collecte_sources.py`), toutes les heures (`@hourly`), une tâche par source (dynamic task mapping). La liste des sources vient de `sources.csv` (colonne `actif`).
-- **Brut** : fichiers JSON Lines dans `data/raw/articles_bruts/dt=AAAA-MM-JJ/<slug>.jsonl`. Champs : `source`, `titre`, `extrait`, `lien`, `date_publication` (UTC), `source_slug`, `collecte_le`. Jamais le texte intégral.
+- **Brut** : fichiers JSON Lines dans `data/raw/articles_bruts/dt=AAAA-MM-JJ/<slug>.jsonl`. Champs : `id`, `source`, `lien`, `titre`, `resume`, `publie_le` (UTC), `recupere_le`, `rubrique`, `payload` (détail dans `docs/donnees.md`). Jamais le texte intégral.
 - **État de chaque source** : `data/etat/<slug>.json`, assemblé dans `data/etat/etat_sources.csv` (la « table des sources »).
 
 ## Règles de collecte

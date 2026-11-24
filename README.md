@@ -66,4 +66,4 @@ Voir [`CONTRIBUTING.md`](CONTRIBUTING.md) et la stratégie CI/CD dans [`docs/ci-
 
 ## Collecte planifiée
 
-La collecte horaire des 24 sources tourne dans Airflow. Fonctionnement, règles et statuts : voir [docs/collecte.md](docs/collecte.md).
+La collecte des 24 sources tourne dans Airflow toutes les 30 minutes. Fonctionnement, règles et statuts : voir [docs/collecte.md](docs/collecte.md) ; champs et tables : [docs/donnees.md](docs/donnees.md).
