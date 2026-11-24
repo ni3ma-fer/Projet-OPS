@@ -32,6 +32,12 @@ def test_source_en_panne_reseau(monkeypatch):
         raise TimeoutError("timed out")
 
     monkeypatch.setattr(src, "fetch_conditionnel", boom)
+    r = src.collecter_source(SOURCE, pause=lambda secondes: None)
+    assert r.statut == "panne"
+    assert "TimeoutError" in r.erreur
+    assert r.tentatives == 3
+
+    monkeypatch.setattr(src, "fetch_conditionnel", boom)
     r = src.collecter_source(SOURCE)
     assert r.statut == "panne"
     assert "TimeoutError" in r.erreur

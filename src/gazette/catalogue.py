@@ -5,10 +5,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from gazette.db import connexion
 from gazette.sources import Resultat, lire_sources
+
+SEUIL_SOMMEIL = 3  # echecs de suite avant le sommeil
+SOMMEIL_HEURES = 6  # duree du sommeil avant un nouvel essai
 
 # Met a jour l'identite de la source, jamais son etat (statut, echecs, etag...).
 UPSERT = """
@@ -21,11 +24,13 @@ SET nom = EXCLUDED.nom,
     actif = EXCLUDED.actif
 """
 
-# Etat apres un passage. Les validateurs (etag, last_modified) sont remplaces apres un 200,
-# conserves apres un 304 sans en-tete, et jamais touches apres une erreur.
+# Etat apres un passage. Une panne qui atteint le seuil devient un sommeil.
+# Les validateurs (etag, last_modified) sont remplaces apres un 200, conserves apres un 304
+# sans en-tete, et jamais touches apres une erreur.
 MAJ_PASSAGE = """
 UPDATE sources SET
-    statut = %(statut)s::text,
+    statut = CASE WHEN %(statut)s::text = 'panne' AND echecs_consecutifs + 1 >= %(seuil)s
+                  THEN 'sommeil' ELSE %(statut)s::text END,
     derniere_tentative = %(maintenant)s,
     derniere_reussite = CASE WHEN %(reussite)s THEN %(maintenant)s ELSE derniere_reussite END,
     echecs_consecutifs = CASE WHEN %(statut)s::text = 'panne'
@@ -60,10 +65,14 @@ def synchroniser(conn, sources: list[dict]) -> int:
     return len(lignes)
 
 
-def charger_sources(conn) -> list[dict]:
-    """Sources actives, avec les validateurs memorises. Meme forme que lire_sources()."""
+def charger_sources(conn, maintenant: datetime | None = None) -> list[dict]:
+    """Sources a collecter : actives, et pas en sommeil (sauf si le sommeil est fini)."""
+    maintenant = maintenant or datetime.now(timezone.utc)
+    limite = maintenant - timedelta(hours=SOMMEIL_HEURES)
     lignes = conn.execute(
-        "SELECT slug, nom, url_flux, etag, last_modified FROM sources WHERE actif ORDER BY slug"
+        "SELECT slug, nom, url_flux, etag, last_modified FROM sources "
+        "WHERE actif AND (statut <> 'sommeil' OR derniere_tentative < %s) ORDER BY slug",
+        (limite,),
     ).fetchall()
     return [
         {"slug": slug, "nom": nom, "url": url, "etag": etag, "last_modified": modifie}
@@ -86,6 +95,7 @@ def parametres_passage(
         "remplacer": succes and resultat.code_http == 200,
         "etag": resultat.etag if succes else None,
         "last_modified": resultat.last_modified if succes else None,
+        "seuil": SEUIL_SOMMEIL,
     }
 
 
