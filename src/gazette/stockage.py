@@ -161,6 +161,7 @@ def traiter_resultat(
         "lus": len(resultat.items),
         "recents": len(recents),
         "nouveaux": nouveaux,
+        "erreur": erreur,
     }
 
 

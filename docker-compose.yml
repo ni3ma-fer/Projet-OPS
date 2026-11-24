@@ -34,6 +34,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "False"   # le DAG tourne seul, sans clic
       AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "True"   # dev uniquement : pas de login
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gazette}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gazette}
       SOURCES_CSV: /opt/airflow/sources.csv
       RAW_DATA_DIR: /opt/airflow/data/raw
       STATE_DIR: /opt/airflow/data/etat
