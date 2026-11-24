@@ -16,8 +16,9 @@ def test_flux_reel_5_items():
 
 
 def test_champs_autorises_uniquement():
+    champs = {"source", "titre", "resume", "lien", "publie_le", "rubrique", "payload"}
     for item in items():
-        assert set(item) == {"source", "titre", "extrait", "lien", "date_publication"}
+        assert set(item) == champs
 
 
 def test_liens_vers_liberation():
@@ -27,13 +28,18 @@ def test_liens_vers_liberation():
 
 def test_dates_en_utc():
     for item in items():
-        assert item["date_publication"].endswith("+00:00")
+        assert item["publie_le"].endswith("+00:00")
 
 
-def test_extraits_propres():
+def test_resumes_propres():
     for item in items():
-        assert "<" not in item["extrait"]
-        assert len(item["extrait"]) <= EXTRAIT_MAX + 1
+        assert "<" not in item["resume"]
+        assert len(item["resume"]) <= EXTRAIT_MAX + 1
+
+
+def test_payload_sans_texte_ni_auteur():
+    for item in items():
+        assert set(item["payload"]) == {"guid", "tags", "publie_brut"}
 
 
 def test_ecrire_json(tmp_path):
@@ -53,13 +59,34 @@ def test_item_sans_titre_ignore():
 
 def test_item_sans_date():
     (item,) = parse(_rss("<item><title>T</title><link>https://x/</link></item>"), "s")
-    assert item["date_publication"] is None
+    assert item["publie_le"] is None
 
 
 def test_date_convertie_en_utc():
     xml = "<item><title>T</title><link>https://x/</link><pubDate>Fri, 13 Nov 2026 08:30:00 +0100</pubDate></item>"
     (item,) = parse(_rss(xml), "s")
-    assert item["date_publication"] == "2026-11-13T07:30:00+00:00"
+    assert item["publie_le"] == "2026-11-13T07:30:00+00:00"
+
+
+def test_rubrique_et_payload():
+    xml = (
+        "<item><title>T</title><link>https://x/</link><guid>abc-1</guid>"
+        "<category>Politique</category><category>Europe</category>"
+        "<pubDate>Fri, 13 Nov 2026 08:30:00 +0100</pubDate></item>"
+    )
+    (item,) = parse(_rss(xml), "s")
+    assert item["rubrique"] == "Politique"
+    assert item["payload"] == {
+        "guid": "abc-1",
+        "tags": ["Politique", "Europe"],
+        "publie_brut": "Fri, 13 Nov 2026 08:30:00 +0100",
+    }
+
+
+def test_item_sans_categorie():
+    (item,) = parse(_rss("<item><title>T</title><link>https://x/</link></item>"), "s")
+    assert item["rubrique"] is None
+    assert item["payload"]["tags"] == []
 
 
 def test_nettoyer_extrait():

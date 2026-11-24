@@ -7,6 +7,7 @@ from gazette.stockage import (
     ecrire_rapport,
     enregistrer_articles,
     filtrer_recents,
+    identifiant,
     lire_etat,
     purger_anciens,
     traiter_resultat,
@@ -18,17 +19,18 @@ MAINTENANT = datetime(2026, 11, 16, 10, 0, tzinfo=timezone.utc)
 def item(lien: str, il_y_a_h: float = 1) -> dict:
     date = datetime.now(timezone.utc) - timedelta(hours=il_y_a_h)
     return {
-        "source": "Test", "titre": f"Titre {lien}", "extrait": "",
-        "lien": lien, "date_publication": date.isoformat(),
+        "source": "Test", "titre": f"Titre {lien}", "resume": "",
+        "lien": lien, "publie_le": date.isoformat(),
+        "rubrique": None, "payload": {},
     }
 
 
 # ---- Brut ----
 def test_filtrer_recents():
     items = [
-        {"lien": "recent", "date_publication": "2026-11-16T09:00:00+00:00"},
-        {"lien": "vieux", "date_publication": "2026-11-15T03:00:00+00:00"},
-        {"lien": "sans-date", "date_publication": None},
+        {"lien": "recent", "publie_le": "2026-11-16T09:00:00+00:00"},
+        {"lien": "vieux", "publie_le": "2026-11-15T03:00:00+00:00"},
+        {"lien": "sans-date", "publie_le": None},
     ]
     assert [i["lien"] for i in filtrer_recents(items, MAINTENANT)] == ["recent"]
 
@@ -40,8 +42,23 @@ def test_pas_de_doublons(tmp_path):
     fichier = tmp_path / "dt=2026-11-16" / "src.jsonl"
     lignes = [json.loads(ligne) for ligne in fichier.read_text(encoding="utf-8").splitlines()]
     assert [ligne["lien"] for ligne in lignes] == ["a", "b"]
-    assert lignes[0]["source_slug"] == "src"
-    assert lignes[0]["collecte_le"] == MAINTENANT.isoformat()
+    assert lignes[0]["id"] == identifiant("src", "a")
+    assert lignes[0]["recupere_le"] == MAINTENANT.isoformat()
+
+
+def test_champs_du_brut_conformes_a_l_enonce(tmp_path):
+    enregistrer_articles(tmp_path, "src", [item("a")], MAINTENANT)
+    ligne = json.loads(next(tmp_path.glob("dt=*/src.jsonl")).read_text(encoding="utf-8"))
+    assert list(ligne) == [
+        "id", "source", "lien", "titre", "resume",
+        "publie_le", "recupere_le", "rubrique", "payload",
+    ]
+
+
+def test_identifiant_stable_et_propre_a_la_source():
+    assert identifiant("a", "https://x/1") == identifiant("a", "https://x/1")
+    assert identifiant("a", "https://x/1") != identifiant("b", "https://x/1")
+    assert identifiant("a", "https://x/1") != identifiant("a", "https://x/2")
 
 
 def test_doublon_dans_le_meme_lot(tmp_path):
@@ -92,6 +109,7 @@ def test_rapport_csv(tmp_path):
         lignes = {ligne["slug"]: ligne for ligne in csv.DictReader(f)}
     assert (lignes["a"]["statut"], lignes["a"]["erreur"]) == ("panne", "HTTP 403")
     assert lignes["b"]["statut"] == "inconnu"
+
 
 def test_304_reste_ok_et_non_degrade(tmp_path):
     bilan = traiter_resultat(

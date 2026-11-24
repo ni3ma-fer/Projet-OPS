@@ -49,6 +49,24 @@ def _date_utc(entry) -> str | None:
     return datetime.fromtimestamp(calendar.timegm(parsed), tz=timezone.utc).isoformat()
 
 
+def _rubrique(entry) -> str | None:
+    """Premiere categorie annoncee par le flux (ex. 'Politique'), sinon None."""
+    for tag in entry.get("tags") or []:
+        terme = (tag.get("term") or "").strip()
+        if terme:
+            return html.unescape(terme)
+    return None
+
+
+def _payload(entry) -> dict:
+    """Metadonnees brutes du flux. Ni texte, ni auteur : pas de donnee personnelle."""
+    return {
+        "guid": entry.get("id"),
+        "tags": [tag["term"] for tag in entry.get("tags") or [] if tag.get("term")],
+        "publie_brut": entry.get("published") or entry.get("updated"),
+    }
+
+
 def parse(contenu: bytes, source: str) -> list[dict]:
     """Transforme un flux RSS/Atom en liste d'items normalises."""
     flux = feedparser.parse(contenu)
@@ -62,9 +80,11 @@ def parse(contenu: bytes, source: str) -> list[dict]:
             {
                 "source": source,
                 "titre": html.unescape(titre),
-                "extrait": nettoyer_extrait(entry.get("summary")),
+                "resume": nettoyer_extrait(entry.get("summary")),
                 "lien": lien,
-                "date_publication": _date_utc(entry),
+                "publie_le": _date_utc(entry),
+                "rubrique": _rubrique(entry),
+                "payload": _payload(entry),
             }
         )
     return items

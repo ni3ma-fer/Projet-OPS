@@ -4,6 +4,7 @@ et etat de chaque source en JSON, avec un rapport CSV."""
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import os
 import shutil
@@ -35,9 +36,29 @@ def filtrer_recents(items: list[dict], maintenant: datetime, heures: int = 24) -
     return [
         item
         for item in items
-        if item.get("date_publication")
-        and datetime.fromisoformat(item["date_publication"]) >= limite
+        if item.get("publie_le")
+        and datetime.fromisoformat(item["publie_le"]) >= limite
     ]
+
+
+def identifiant(slug: str, lien: str) -> str:
+    """Identifiant stable : le meme article d'une source donne toujours le meme id."""
+    return hashlib.sha256(f"{slug}\n{lien}".encode()).hexdigest()[:16]
+
+
+def construire_ligne(item: dict, slug: str, maintenant: datetime) -> dict:
+    """Ligne du brut, dans l'ordre des champs de l'enonce."""
+    return {
+        "id": identifiant(slug, item["lien"]),
+        "source": item["source"],
+        "lien": item["lien"],
+        "titre": item["titre"],
+        "resume": item["resume"],
+        "publie_le": item["publie_le"],
+        "recupere_le": maintenant.isoformat(),
+        "rubrique": item["rubrique"],
+        "payload": item["payload"],
+    }
 
 
 def liens_connus(racine: Path, slug: str) -> set[str]:
@@ -57,7 +78,7 @@ def enregistrer_articles(racine: Path, slug: str, items: list[dict], maintenant:
         if item["lien"] in connus:
             continue
         connus.add(item["lien"])
-        nouveaux.append({**item, "source_slug": slug, "collecte_le": maintenant.isoformat()})
+        nouveaux.append(construire_ligne(item, slug, maintenant))
     if nouveaux:
         fichier = racine / f"dt={maintenant:%Y-%m-%d}" / f"{slug}.jsonl"
         fichier.parent.mkdir(parents=True, exist_ok=True)
