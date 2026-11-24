@@ -22,3 +22,6 @@ markers = ["network: test qui appelle Internet (exclu de la CI)"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.setuptools.package-data]
+gazette = ["migrations/*.sql"]
